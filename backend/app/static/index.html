@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AquaFlow AI - Unified Water Intelligence</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              light: '#E3F2FD',
+              primary: '#2196F3',
+              dark: '#1565C0',
+              hover: '#1976D2',
+              accent: '#00E5FF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .water-bg {
+      background: linear-gradient(-45deg, #e0f2fe, #bae6fd, #e0f2fe, #38bdf8);
+      background-size: 400% 400%;
+      animation: waterGradient 15s ease infinite;
+    }
+    .dark .water-bg {
+      background: linear-gradient(-45deg, #0f172a, #0c4a6e, #0f172a, #0369a1);
+      background-size: 400% 400%;
+      animation: waterGradient 15s ease infinite;
+    }
+    @keyframes waterGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+    }
+    .dark .glass-card {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Simple unified loader overlay -->
+  <div id="app-spinner" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300">
+    <div class="flex flex-col items-center gap-4">
+      <div class="h-12 w-12 animate-spin rounded-full border-4 border-brand-primary border-t-transparent"></div>
+      <p class="text-sm font-bold text-slate-200">Initializing AquaFlow AI...</p>
+    </div>
+  </div>
+
+  <!-- Main static container (we use simple vanilla SPA state switching!) -->
+  <div id="app-root" class="hidden flex-1 flex flex-col">
+    <!-- Navbar -->
+    <header class="sticky top-0 z-40 w-full border-b border-slate-200/50 bg-white/70 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-950/70">
+      <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('landing')">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-dark to-brand-primary text-white shadow-md">
+            <i data-lucide="droplet" class="fill-current w-5 h-5"></i>
+          </div>
+          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-brand-dark to-brand-primary bg-clip-text text-transparent dark:from-brand-primary dark:to-cyan-400">
+            AquaFlow AI
+          </span>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <button onclick="toggleDarkMode()" class="rounded-xl border border-slate-200/50 p-2.5 text-slate-500 hover:bg-slate-50 dark:border-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-900 transition-all">
+            <i data-lucide="sun" id="theme-btn-sun" class="w-4 h-4 hidden"></i>
+            <i data-lucide="moon" id="theme-btn-moon" class="w-4 h-4"></i>
+          </button>
+          
+          <div class="flex items-center gap-2" id="nav-auth-section">
+            <!-- Dynamic auth links -->
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex flex-1 max-w-7xl w-full mx-auto relative px-4 sm:px-6 lg:px-8 py-6">
+      
+      <!-- Side navigation bar -->
+      <aside class="hidden md:flex flex-col gap-1 w-60 shrink-0 pr-6 border-r border-slate-200/30 dark:border-slate-800/30" id="sidebar-nav">
+        <!-- Sidebar links -->
+      </aside>
+
+      <!-- Main viewport panel -->
+      <main class="flex-1 min-w-0 md:pl-6 space-y-8" id="viewport-panel">
+        <!-- Loaded tab html injected here -->
+      </main>
+
+    </div>
+  </div>
+
+  <!-- CDN scripts -->
+  <script>
+    // System-wide Global States
+    let currentTab = 'landing';
+    let token = localStorage.getItem('token') || null;
+    let user = null;
+    let stats = null;
+    let liveSensorsInterval = null;
+
+    // Set Base API URL
+    const API_URL = window.location.origin + '/api/v1';
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Toggle Dark mode by default
+      if (localStorage.getItem('theme') !== 'light') {
+        document.documentElement.classList.add('dark');
+        document.getElementById('theme-btn-sun').classList.remove('hidden');
+        document.getElementById('theme-btn-moon').classList.add('hidden');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('theme-btn-sun').classList.add('hidden');
+        document.getElementById('theme-btn-moon').classList.remove('hidden');
+      }
+      
+      if (token) {
+        await loadUserProfile();
+      }
+      
+      lucide.createIcons();
+      document.getElementById('app-spinner').classList.add('opacity-0');
+      setTimeout(() => {
+        document.getElementById('app-spinner').classList.add('hidden');
+        document.getElementById('app-root').classList.remove('hidden');
+      }, 300);
+
+      // Default switch
+      switchTab(token ? 'dashboard' : 'landing');
+    });
+
+    function toggleDarkMode() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      
+      if (isDark) {
+        document.getElementById('theme-btn-sun').classList.remove('hidden');
+        document.getElementById('theme-btn-moon').classList.add('hidden');
+      } else {
+        document.getElementById('theme-btn-sun').classList.add('hidden');
+        document.getElementById('theme-btn-moon').classList.remove('hidden');
+      }
+    }
+
+    async function loadUserProfile() {
+      try {
+        const res = await fetch(`${API_URL}/auth/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          user = await res.json();
+        } else {
+          logout();
+        }
+      } catch (e) {
+        console.error(e);
+        logout();
+      }
+    }
+
+    function logout() {
+      token = null;
+      user = null;
+      localStorage.removeItem('token');
+      if (liveSensorsInterval) clearInterval(liveSensorsInterval);
+      switchTab('landing');
+    }
+
+    // Tab Switching controller
+    async function switchTab(tabName) {
+      currentTab = tabName;
+      if (liveSensorsInterval) {
+        clearInterval(liveSensorsInterval);
+        liveSensorsInterval = null;
+      }
+      
+      renderAuthNavs();
+      renderSidebar();
+      
+      const panel = document.getElementById('viewport-panel');
+      panel.innerHTML = '<div class="flex h-48 items-center justify-center"><div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-primary border-t-transparent"></div></div>';
+      
+      try {
+        if (tabName === 'landing') {
+          renderLandingPage(panel);
+        } else if (tabName === 'login') {
+          renderLoginPage(panel);
+        } else if (tabName === 'register') {
+          renderRegisterPage(panel);
+        } else if (tabName === 'dashboard') {
+          await renderDashboardPage(panel);
+        } else if (tabName === 'analysis') {
+          renderAnalysisPage(panel);
+        } else if (tabName === 'live') {
+          renderLiveMonitoringPage(panel);
+        } else if (tabName === 'history') {
+          await renderHistoryPage(panel);
+        } else if (tabName === 'chat') {
+          renderChatPage(panel);
+        } else if (tabName === 'docs') {
+          renderDocsPage(panel);
+        } else if (tabName === 'admin') {
+          await renderAdminLogsPage(panel);
+        }
+      } catch (err) {
+        panel.innerHTML = `<div class="p-6 rounded-2xl bg-rose-500/10 text-rose-500 text-center font-bold">Failed to load content. Ensure backend is running.</div>`;
+      }
+      lucide.createIcons();
+    }
+
+    // Dynamic Render Navs
+    function renderAuthNavs() {
+      const authDiv = document.getElementById('nav-auth-section');
+      if (token && user) {
+        authDiv.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold hidden sm:inline">${user.full_name}</span>
+            <button onclick="logout()" class="flex items-center gap-1.5 rounded-xl bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-500/20 dark:text-rose-400 transition-all">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        `;
+      } else {
+        authDiv.innerHTML = `
+          <button onclick="switchTab('login')" class="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900 transition-all">Sign In</button>
+          <button onclick="switchTab('register')" class="rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover shadow-md transition-all">Sign Up</button>
+        `;
+      }
+    }
+
+    function renderSidebar() {
+      const sidebar = document.getElementById('sidebar-nav');
+      if (!token) {
+        sidebar.classList.add('hidden');
+        return;
+      }
+      sidebar.classList.remove('hidden');
+      
+      const links = [
+        { name: 'Dashboard', tab: 'dashboard', icon: 'layout-dashboard' },
+        { name: 'Water Analysis', tab: 'analysis', icon: 'test-tube-2' },
+        { name: 'Live Monitoring', tab: 'live', icon: 'activity' },
+        { name: 'Prediction History', tab: 'history', icon: 'history' },
+        { name: 'AI Chat Assistant', tab: 'chat', icon: 'message-square-share' },
+        { name: 'Developer API', tab: 'docs', icon: 'book-open' }
+      ];
+
+      if (user && user.role === 'admin') {
+        links.push({ name: 'System Logs', tab: 'admin', icon: 'shield-alert' });
+      }
+
+      sidebar.innerHTML = `
+        <span class="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Portal Pages</span>
+        <nav class="space-y-1">
+          ${links.map(link => `
+            <button onclick="switchTab('${link.tab}')" class="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold transition-all ${
+              currentTab === link.tab
+                ? 'bg-brand-primary text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white'
+            }">
+              <i data-lucide="${link.icon}" class="w-4 h-4"></i>
+              <span>${link.name}</span>
+            </button>
+          `).join('')}
+        </nav>
+      `;
+    }
+
+    // 1. Landing Page Render
+    function renderLandingPage(el) {
+      el.innerHTML = `
+        <div class="space-y-16 -mx-4 sm:-mx-6 lg:-mx-8">
+          <section class="water-bg relative overflow-hidden py-24 text-center">
+            <div class="absolute inset-0 bg-white/40 dark:bg-slate-950/50"></div>
+            <div class="relative max-w-4xl mx-auto px-4 z-10 space-y-6">
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 border border-brand-primary/20 px-3.5 py-1.5 text-xs font-bold text-brand-dark dark:text-brand-light">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand-primary animate-pulse"></i>
+                <span>Water Potability AI predictions</span>
+              </span>
+              <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl dark:text-white">
+                Predict Water Safety with <span class="bg-gradient-to-r from-brand-primary to-cyan-400 bg-clip-text text-transparent">Machine Learning</span>
+              </h1>
+              <p class="text-slate-600 dark:text-slate-300 max-w-2xl mx-auto text-base">
+                AquaFlow AI analyzes parameter datasets (pH, Sulfate, solids, Turbidity) using trained models to evaluate safety out-of-the-box.
+              </p>
+              <div class="pt-4 flex justify-center gap-3">
+                <button onclick="switchTab('${token ? 'analysis' : 'login'}')" class="flex items-center gap-2 rounded-xl bg-brand-primary px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-brand-hover transition-all">
+                  <span>Analyze Samples</span>
+                  <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+                <button onclick="switchTab('docs')" class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 px-6 py-3.5 text-sm font-bold transition-all">Developer Docs</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 pb-12">
+            <div class="glass-card p-8 rounded-3xl">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary mb-4">
+                <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-lg mb-2">Excel / CSV Batch Uploads</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">Drag files, parse features, validate columns, and evaluate 1,000+ samples sequentially in milliseconds.</p>
+            </div>
+            <div class="glass-card p-8 rounded-3xl">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary mb-4">
+                <i data-lucide="cpu" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-lg mb-2">Best Ensemble Model</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">Automated comparison across Random Forest, XGBoost, and Gradient Boosting pipelines ensuring high precision outputs.</p>
+            </div>
+            <div class="glass-card p-8 rounded-3xl">
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary mb-4">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-lg mb-2">Remediation Guidelines</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">Provides clear chemical index violations and structural recommendations like Softeners, RO membranes, or carbon block filtering.</p>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    // 2. Auth Pages
+    function renderLoginPage(el) {
+      el.innerHTML = `
+        <div class="max-w-md mx-auto my-12 glass-card p-8 rounded-3xl space-y-6">
+          <div class="text-center space-y-2">
+            <h2 class="text-2xl font-black">Welcome Back</h2>
+            <p class="text-xs text-slate-500">Sign in to access your predictions portal</p>
+          </div>
+          <div id="login-error" class="hidden p-3 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-semibold"></div>
+          <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+            <div>
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Email Address</label>
+              <input type="email" id="login-email" required class="input-field text-sm" placeholder="you@example.com" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+              <input type="password" id="login-password" required class="input-field text-sm" placeholder="••••••••" />
+            </div>
+            <button type="submit" class="w-full py-3 rounded-xl bg-brand-primary text-xs font-bold text-white shadow-md hover:bg-brand-hover transition-all">Sign In</button>
+          </form>
+          <p class="text-center text-xs text-slate-400">New to AquaFlow? <span onclick="switchTab('register')" class="text-brand-primary font-bold cursor-pointer hover:underline">Register here</span></p>
+        </div>
+      `;
+    }
+
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const errBox = document.getElementById('login-error');
+      errBox.classList.add('hidden');
+      
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          token = data.access_token;
+          localStorage.setItem('token', token);
+          await loadUserProfile();
+          switchTab('dashboard');
+        } else {
+          errBox.textContent = data.detail || 'Invalid email or password.';
+          errBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        errBox.textContent = 'API Server offline.';
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function renderRegisterPage(el) {
+      el.innerHTML = `
+        <div class="max-w-md mx-auto my-12 glass-card p-8 rounded-3xl space-y-6">
+          <div class="text-center space-y-2">
+            <h2 class="text-2xl font-black">Register Account</h2>
+            <p class="text-xs text-slate-500">Create login keys for water monitoring</p>
+          </div>
+          <div id="register-error" class="hidden p-3 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 text-xs font-semibold"></div>
+          <form onsubmit="handleRegisterSubmit(event)" class="space-y-4">
+            <div>
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Full Name</label>
+              <input type="text" id="reg-name" required class="input-field text-sm" placeholder="John Doe" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Email Address</label>
+              <input type="email" id="reg-email" required class="input-field text-sm" placeholder="you@example.com" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+              <input type="password" id="reg-password" required class="input-field text-sm" placeholder="••••••••" />
+            </div>
+            <button type="submit" class="w-full py-3 rounded-xl bg-brand-primary text-xs font-bold text-white shadow-md hover:bg-brand-hover transition-all">Create Account</button>
+          </form>
+          <p class="text-center text-xs text-slate-400">Already registered? <span onclick="switchTab('login')" class="text-brand-primary font-bold cursor-pointer hover:underline">Sign in here</span></p>
+        </div>
+      `;
+    }
+
+    async function handleRegisterSubmit(e) {
+      e.preventDefault();
+      const fullName = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+      const errBox = document.getElementById('register-error');
+      errBox.classList.add('hidden');
+      
+      try {
+        const res = await fetch(`${API_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, full_name: fullName })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Login automatically
+          const loginRes = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const loginData = await loginRes.json();
+          token = loginData.access_token;
+          localStorage.setItem('token', token);
+          await loadUserProfile();
+          switchTab('dashboard');
+        } else {
+          errBox.textContent = data.detail || 'Email already exists or invalid password.';
+          errBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        errBox.textContent = 'API server offline.';
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    // 3. Dashboard Page Render
+    async function renderDashboardPage(el) {
+      const statsRes = await fetch(`${API_URL}/admin/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      stats = await statsRes.json();
+
+      el.innerHTML = `
+        <div class="space-y-8">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">System Dashboard</h1>
+            <p class="mt-1.5 text-xs text-slate-400">Real-time prediction telemetry and historical metrics</p>
+          </div>
+
+          <!-- KPI indicators -->
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="glass-card p-6 rounded-3xl flex justify-between items-center">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Uploaded Files</span>
+                <h3 class="text-2xl font-black mt-2">${stats.total_files}</h3>
+              </div>
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+                <i data-lucide="file-spreadsheet"></i>
+              </div>
+            </div>
+            <div class="glass-card p-6 rounded-3xl flex justify-between items-center text-emerald-500">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Safe Predictions</span>
+                <h3 class="text-2xl font-black mt-2">${stats.safe_count}</h3>
+              </div>
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-emerald-500/10">
+                <i data-lucide="check-circle-2"></i>
+              </div>
+            </div>
+            <div class="glass-card p-6 rounded-3xl flex justify-between items-center text-rose-500">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unsafe Predictions</span>
+                <h3 class="text-2xl font-black mt-2">${stats.unsafe_count}</h3>
+              </div>
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-rose-500/10">
+                <i data-lucide="x-circle"></i>
+              </div>
+            </div>
+            <div class="glass-card p-6 rounded-3xl flex justify-between items-center">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Quality Score</span>
+                <h3 class="text-2xl font-black mt-2">${stats.average_wqs.toFixed(1)}</h3>
+              </div>
+              <div class="h-10 w-10 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+                <i data-lucide="activity"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature violation warning -->
+          ${stats.most_common_issue && stats.most_common_issue !== 'None detected' ? `
+            <div class="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              <i data-lucide="alert-triangle" class="shrink-0 animate-bounce"></i>
+              <span>**Primary Failure Factor**: ${stats.most_common_issue}. We recommend testing filtration systems or running membrane diagnostic updates.</span>
+            </div>
+          ` : ''}
+
+          <!-- Recent Uploads -->
+          <div class="glass-card p-6 rounded-3xl">
+            <h3 class="font-bold text-base mb-4">Recent Upload History</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-200/50 dark:divide-slate-800/50">
+                <thead>
+                  <tr>
+                    <th class="glass-table-th">Filename</th>
+                    <th className="glass-table-th">Uploaded At</th>
+                    <th class="glass-table-th">Record Count</th>
+                    <th class="glass-table-th">WQ Score</th>
+                    <th class="glass-table-th">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/50 dark:divide-slate-800/50 bg-transparent">
+                  ${stats.recent_uploads.length > 0 ? stats.recent_uploads.map(file => `
+                    <tr>
+                      <td class="glass-table-td font-bold flex items-center gap-2">
+                        <i data-lucide="folder-open" class="text-brand-primary w-4 h-4"></i>
+                        <span>${file.filename}</span>
+                      </td>
+                      <td class="glass-table-td">${new Date(file.created_at).toLocaleString()}</td>
+                      <td class="glass-table-td">${file.record_count}</td>
+                      <td class="glass-table-td font-bold">${file.average_score.toFixed(1)}</td>
+                      <td class="glass-table-td">
+                        <button onclick="switchTab('history')" class="text-xs font-bold text-brand-primary hover:underline">View History</button>
+                      </td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colSpan="5" class="px-6 py-8 text-center text-xs text-slate-500">No uploads registered yet. Go to Water Analysis to process your first sample!</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 4. Water Analysis Page Render
+    function renderAnalysisPage(el) {
+      el.innerHTML = `
+        <div class="space-y-8">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Water Quality Analysis</h1>
+            <p class="mt-1.5 text-xs text-slate-400">Evaluate water sample indexes via batch files or manual entry</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Manual Form Card -->
+            <div class="glass-card p-6 rounded-3xl lg:col-span-2 space-y-6">
+              <h3 class="font-bold text-base pb-2 border-b border-slate-100 dark:border-slate-800">Manual Parameter Evaluation</h3>
+              <form onsubmit="handleManualPredict(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="manual-predict-form">
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">pH (0-14)</label>
+                  <input type="number" step="any" id="form-ph" class="input-field text-xs py-2" placeholder="e.g. 7.2" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Hardness (mg/L)</label>
+                  <input type="number" step="any" required id="form-hardness" class="input-field text-xs py-2" placeholder="e.g. 196" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Solids (mg/L)</label>
+                  <input type="number" step="any" required id="form-solids" class="input-field text-xs py-2" placeholder="e.g. 22000" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Chloramines (ppm)</label>
+                  <input type="number" step="any" required id="form-chloramines" class="input-field text-xs py-2" placeholder="e.g. 7.1" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Sulfate (mg/L)</label>
+                  <input type="number" step="any" id="form-sulfate" class="input-field text-xs py-2" placeholder="e.g. 333" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Conductivity (µS/cm)</label>
+                  <input type="number" step="any" required id="form-conductivity" class="input-field text-xs py-2" placeholder="e.g. 426" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Organic Carbon (mg/L)</label>
+                  <input type="number" step="any" required id="form-carbon" class="input-field text-xs py-2" placeholder="e.g. 14.3" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Trihalomethanes (µg/L)</label>
+                  <input type="number" step="any" id="form-trihalomethanes" class="input-field text-xs py-2" placeholder="e.g. 66.4" />
+                </div>
+                <div>
+                  <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Turbidity (NTU)</label>
+                  <input type="number" step="any" required id="form-turbidity" class="input-field text-xs py-2" placeholder="e.g. 3.9" />
+                </div>
+                <div class="sm:col-span-3 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                  <button type="reset" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">Clear</button>
+                  <button type="submit" class="px-6 py-2 rounded-xl bg-brand-primary text-xs font-bold text-white shadow-md hover:bg-brand-hover">Evaluate Sample</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Single Result Card -->
+            <div class="lg:col-span-1" id="analysis-result-panel">
+              <div class="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center text-slate-400 flex flex-col items-center justify-center h-full min-h-[300px]">
+                <i data-lucide="activity" class="w-8 h-8 text-slate-300 dark:text-slate-700 animate-pulse mb-3"></i>
+                <h4 class="text-xs font-bold text-slate-500">Ready for Evaluation</h4>
+                <p class="mt-1 text-[10px] max-w-[180px] mx-auto">Fill in the water parameter form and submit to receive instant AI evaluation results</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function handleManualPredict(e) {
+      e.preventDefault();
+      
+      const payload = {
+        ph: document.getElementById('form-ph').value === '' ? null : parseFloat(document.getElementById('form-ph').value),
+        hardness: parseFloat(document.getElementById('form-hardness').value),
+        solids: parseFloat(document.getElementById('form-solids').value),
+        chloramines: parseFloat(document.getElementById('form-chloramines').value),
+        sulfate: document.getElementById('form-sulfate').value === '' ? null : parseFloat(document.getElementById('form-sulfate').value),
+        conductivity: parseFloat(document.getElementById('form-conductivity').value),
+        organic_carbon: parseFloat(document.getElementById('form-carbon').value),
+        trihalomethanes: document.getElementById('form-trihalomethanes').value === '' ? null : parseFloat(document.getElementById('form-trihalomethanes').value),
+        turbidity: parseFloat(document.getElementById('form-turbidity').value)
+      };
+
+      const resultPanel = document.getElementById('analysis-result-panel');
+      resultPanel.innerHTML = '<div class="flex h-full items-center justify-center"><div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-primary border-t-transparent"></div></div>';
+
+      try {
+        const res = await fetch(`${API_URL}/predictions/predict-single`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          // Re-evaluate client insights recommendations based on predictions
+          const safe = data.prediction === 1;
+          const recs = [];
+          if (safe) {
+            recs.push("Water quality appears suitable for drinking. Safe to drink. Keep stored in a clean container.");
+          } else {
+            if (payload.ph && payload.ph < 6.5) recs.push("pH Neutralizer / Calcite filter");
+            if (payload.ph && payload.ph > 8.5) recs.push("Acid injection balancing system");
+            if (payload.hardness > 250) recs.push("Water Softener (Ion Exchange) or RO system");
+            if (payload.solids > 20000) recs.push("Reverse Osmosis (RO) Filter or Distillation");
+            if (payload.turbidity > 5.0) recs.push("Sand filter or Coagulation/Sedimentation");
+            if (recs.length === 0) recs.push("Multi-stage RO + UV purification system.");
+          }
+
+          resultPanel.innerHTML = `
+            <div class="glass-card p-6 rounded-3xl space-y-6 animate-fadeIn">
+              <div class="text-center pb-4 border-b border-slate-100 dark:border-slate-800">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Evaluation Result</span>
+                <div class="mt-4 flex justify-center flex-col items-center gap-1.5 ${safe ? 'text-emerald-500' : 'text-rose-500'}">
+                  <i data-lucide="${safe ? 'check-circle-2' : 'x-circle'}" class="w-10 h-10"></i>
+                  <h4 class="text-base font-bold">${safe ? 'Safe for Drinking' : 'Not Safe for Drinking'}</h4>
+                </div>
+                <p class="text-[9px] text-slate-400 mt-2">Confidence Score: ${(data.confidence * 100).toFixed(0)}%</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-center">
+                <div class="bg-slate-100/50 dark:bg-slate-900/50 p-3 rounded-2xl">
+                  <span class="text-[9px] font-bold text-slate-400 uppercase block">WQ Score</span>
+                  <span class="text-lg font-black text-brand-primary block mt-0.5">${data.wqs_score.toFixed(1)}</span>
+                </div>
+                <div class="bg-slate-100/50 dark:bg-slate-900/50 p-3 rounded-2xl">
+                  <span class="text-[9px] font-bold text-slate-400 uppercase block">Grade</span>
+                  <span class="text-lg font-black text-brand-primary block mt-0.5">${data.wqs_grade}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="text-xs font-bold mb-2 flex items-center gap-1"><i data-lucide="activity" class="w-3.5 h-3.5 text-brand-primary"></i> AI Directives</h4>
+                <div class="p-3 bg-brand-primary/5 border border-brand-primary/10 rounded-2xl text-[10px] text-slate-600 dark:text-slate-400">
+                  <ul class="list-disc pl-4 space-y-1.5 font-semibold">
+                    ${recs.map(r => `<li>${r}</li>`).join('')}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          `;
+          lucide.createIcons();
+        } else {
+          resultPanel.innerHTML = `<div class="p-4 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold">${data.detail}</div>`;
+        }
+      } catch (err) {
+        resultPanel.innerHTML = `<div class="p-4 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold">API server offline.</div>`;
+      }
+    }
+
+    // 5. Live IoT Monitoring Page Render
+    function renderLiveMonitoringPage(el) {
+      el.innerHTML = `
+        <div class="space-y-8">
+          <div class="flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2">
+                <i data-lucide="radio" class="text-brand-primary animate-pulse"></i>
+                <span>IoT Sensor Stream</span>
+              </h1>
+              <p class="mt-1.5 text-xs text-slate-400">Live 0.33Hz sensor stream mock telemetry</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="glass-card p-6 rounded-3xl text-center flex flex-col items-center justify-between">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Potability Status</span>
+              <div id="live-potability-pulse" class="my-4 text-emerald-500 animate-pulse flex flex-col items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-12 h-12"></i>
+                <span class="text-lg font-black uppercase">SAFE</span>
+              </div>
+              <span class="text-[9px] text-slate-400" id="live-confidence">Confidence: 91%</span>
+            </div>
+
+            <div class="glass-card p-6 rounded-3xl text-center flex flex-col items-center justify-between">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">WQ Score</span>
+              <div class="my-3">
+                <span class="text-4xl font-black text-brand-primary" id="live-score">82.4</span>
+                <span class="text-slate-400 text-xs font-medium">/100</span>
+              </div>
+              <span class="text-xs font-semibold text-slate-500" id="live-grade">Grade B</span>
+            </div>
+
+            <div class="glass-card p-6 rounded-3xl space-y-3">
+              <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Sensor Values</span>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-100/50 dark:bg-slate-900/50 p-2 rounded-xl">
+                  <span class="text-[9px] text-slate-400 block">pH</span>
+                  <span class="font-bold block mt-0.5" id="live-ph">7.20</span>
+                </div>
+                <div class="bg-slate-100/50 dark:bg-slate-900/50 p-2 rounded-xl">
+                  <span class="text-[9px] text-slate-400 block">Turbid (NTU)</span>
+                  <span class="font-bold block mt-0.5" id="live-turbidity">1.21</span>
+                </div>
+                <div class="bg-slate-100/50 dark:bg-slate-900/50 p-2 rounded-xl">
+                  <span class="text-[9px] text-slate-400 block">Chlor (ppm)</span>
+                  <span class="font-bold block mt-0.5" id="live-chloramines">5.10</span>
+                </div>
+                <div class="bg-slate-100/50 dark:bg-slate-900/50 p-2 rounded-xl">
+                  <span class="text-[9px] text-slate-400 block">Sulfate (mg/L)</span>
+                  <span class="font-bold block mt-0.5" id="live-sulfate">280</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alert box log -->
+          <div class="glass-card p-6 rounded-3xl">
+            <h3 class="font-bold text-base mb-4">Live Alert Log</h3>
+            <div id="live-alerts-panel" class="space-y-3">
+              <!-- Alerts populated -->
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Start sensor polling
+      const pollSensors = async () => {
+        try {
+          const res = await fetch(`${API_URL}/monitoring/current`);
+          const data = await res.json();
+          if (res.ok) {
+            document.getElementById('live-ph').textContent = data.parameters.ph.toFixed(2);
+            document.getElementById('live-turbidity').textContent = data.parameters.turbidity.toFixed(2);
+            document.getElementById('live-chloramines').textContent = data.parameters.chloramines.toFixed(2);
+            document.getElementById('live-sulfate').textContent = data.parameters.sulfate.toFixed(0);
+            
+            document.getElementById('live-score').textContent = data.wqs_score.toFixed(1);
+            document.getElementById('live-grade').textContent = `Grade ${data.wqs_grade}`;
+            document.getElementById('live-confidence').textContent = `Confidence: ${(data.confidence * 100).toFixed(0)}%`;
+            
+            const pulseDiv = document.getElementById('live-potability-pulse');
+            if (data.prediction === 1) {
+              pulseDiv.className = "my-4 text-emerald-500 animate-pulse flex flex-col items-center gap-1.5";
+              pulseDiv.innerHTML = `<i data-lucide="shield-check" class="w-12 h-12"></i><span class="text-lg font-black uppercase">SAFE</span>`;
+            } else {
+              pulseDiv.className = "my-4 text-rose-500 animate-pulse flex flex-col items-center gap-1.5";
+              pulseDiv.innerHTML = `<i data-lucide="x-circle" class="w-12 h-12"></i><span class="text-lg font-black uppercase">UNSAFE</span>`;
+            }
+
+            const alertDiv = document.getElementById('live-alerts-panel');
+            const alerts = [];
+            if (data.parameters.ph < 6.5) alerts.push("Warning: Acidic pH levels detected (< 6.5)");
+            if (data.parameters.ph > 8.5) alerts.push("Warning: Alkaline pH levels detected (> 8.5)");
+            if (data.parameters.turbidity > 4.5) alerts.push("Critical: Elevated turbidity particles (> 4.5 NTU)");
+            
+            if (alerts.length > 0) {
+              alertDiv.innerHTML = alerts.map(a => `
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] font-semibold text-amber-600 dark:text-amber-400 animate-pulse">
+                  <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5"></i>
+                  <span>${a}</span>
+                </div>
+              `).join('');
+            } else {
+              alertDiv.innerHTML = `
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <i data-lucide="shield-check" class="w-4 h-4 mt-0.5"></i>
+                  <span>All sensors reading optimal levels. No alerts flagged.</span>
+                </div>
+              `;
+            }
+            lucide.createIcons();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      pollSensors();
+      liveSensorsInterval = setInterval(pollSensors, 3000);
+    }
+
+    // 6. Prediction History Page Render
+    async function renderHistoryPage(el) {
+      const res = await fetch(`${API_URL}/predictions/history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const historyList = await res.json();
+
+      el.innerHTML = `
+        <div class="space-y-8">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Prediction History</h1>
+            <p class="mt-1.5 text-xs text-slate-400">Audit and manage previously processed water quality datasets</p>
+          </div>
+
+          <div class="glass-card p-6 rounded-3xl">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-200/50 dark:divide-slate-800/50">
+                <thead>
+                  <tr>
+                    <th class="glass-table-th">Filename</th>
+                    <th class="glass-table-th">Uploaded At</th>
+                    <th class="glass-table-th">Records</th>
+                    <th class="glass-table-th">Safe</th>
+                    <th class="glass-table-th">Unsafe</th>
+                    <th class="glass-table-th">WQS Avg</th>
+                    <th class="glass-table-th">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/50 dark:divide-slate-800/50 bg-transparent">
+                  ${historyList.length > 0 ? historyList.map(item => `
+                    <tr>
+                      <td class="glass-table-td font-bold flex items-center gap-2">
+                        <i data-lucide="file-spreadsheet" class="text-brand-primary w-4 h-4"></i>
+                        <span>${item.filename}</span>
+                      </td>
+                      <td class="glass-table-td">${new Date(item.created_at).toLocaleString()}</td>
+                      <td class="glass-table-td">${item.record_count}</td>
+                      <td class="glass-table-td text-emerald-500 font-semibold">${item.safe_count}</td>
+                      <td class="glass-table-td text-rose-500 font-semibold">${item.unsafe_count}</td>
+                      <td class="glass-table-td font-bold">${item.average_score.toFixed(1)}</td>
+                      <td class="glass-table-td">
+                        <div class="flex gap-2">
+                          <a href="${API_URL}/predictions/export-excel/${item.id}" download class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[10px] font-bold text-brand-primary hover:bg-brand-primary/5 transition-all">Export</a>
+                          <button onclick="handleDeleteHistory(${item.id})" class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold hover:bg-rose-500/20 transition-all">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colSpan="7" class="px-6 py-8 text-center text-xs text-slate-500">No prediction history records stored.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function handleDeleteHistory(id) {
+      if (!confirm("Are you sure you want to delete this record?")) return;
+      try {
+        const res = await fetch(`${API_URL}/predictions/history/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          switchTab('history');
+        } else {
+          alert("Failed to delete record.");
+        }
+      } catch (e) {
+        alert("API Offline.");
+      }
+    }
+
+    // 7. Chat Assistant
+    function renderChatPage(el) {
+      el.innerHTML = `
+        <div class="space-y-8 max-w-3xl mx-auto h-[calc(100vh-10rem)] flex flex-col">
+          <div>
+            <h1 class="text-2xl font-extrabold tracking-tight flex items-center gap-2">
+              <i data-lucide="sparkles" class="text-brand-primary"></i>
+              <span>AI Chat Assistant</span>
+            </h1>
+            <p class="mt-1.5 text-xs text-slate-400 font-medium">Ask questions about WHO safe thresholds, pH ranges, or filtration technologies</p>
+          </div>
+
+          <div class="glass-card flex-1 flex flex-col justify-between overflow-hidden rounded-3xl">
+            <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-h-[40vh] sm:max-h-[50vh] pr-2">
+              <div class="flex items-start gap-3">
+                <div class="h-8 w-8 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary"><i data-lucide="bot" class="w-4 h-4"></i></div>
+                <div class="max-w-[80%] rounded-2xl rounded-tl-none px-4 py-3 bg-slate-100/50 dark:bg-slate-900/50 text-xs text-slate-700 dark:text-slate-300">
+                  Hello! I am your <strong>Water Quality AI Chatbot</strong>. Ask me about pH, Turbidity, solids (TDS), or standard filtration technologies.
+                </div>
+              </div>
+            </div>
+            
+            <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-white/30 dark:bg-slate-950/30">
+              <form onsubmit="handleSendChatMessage(event)" class="flex gap-2">
+                <input type="text" id="chat-input" required class="input-field text-xs py-2 flex-1" placeholder="Type a message..." />
+                <button type="submit" class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary text-white hover:bg-brand-hover shadow-md shrink-0"><i data-lucide="send" class="w-4 h-4"></i></button>
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function handleSendChatMessage(e) {
+      e.preventDefault();
+      const inputEl = document.getElementById('chat-input');
+      const text = inputEl.value.trim();
+      if (!text) return;
+      inputEl.value = '';
+
+      const container = document.getElementById('chat-messages-container');
+      
+      // Append user
+      container.innerHTML += `
+        <div class="flex items-start gap-3 flex-row-reverse">
+          <div class="h-8 w-8 flex items-center justify-center rounded-xl bg-brand-primary text-white"><i data-lucide="user" class="w-4 h-4"></i></div>
+          <div class="max-w-[80%] rounded-2xl rounded-tr-none px-4 py-3 bg-brand-primary text-white text-xs">
+            ${text}
+          </div>
+        </div>
+      `;
+      
+      const botLoaderId = 'bot-loader-' + Date.now();
+      container.innerHTML += `
+        <div class="flex items-start gap-3" id="${botLoaderId}">
+          <div class="h-8 w-8 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary"><i data-lucide="bot" class="w-4 h-4"></i></div>
+          <div class="rounded-2xl rounded-tl-none px-4 py-3 bg-slate-100/50 dark:bg-slate-900/50 text-slate-500 flex gap-1 items-center">
+            <span class="h-1 w-1 animate-bounce rounded-full bg-slate-400"></span>
+            <span class="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:0.2s]"></span>
+          </div>
+        </div>
+      `;
+      container.scrollTop = container.scrollHeight;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(`${API_URL}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        
+        document.getElementById(botLoaderId).remove();
+        
+        // Parse bold elements in bot reply
+        let formattedReply = data.reply.split('**').map((part, pIdx) => pIdx % 2 === 1 ? `<strong>${part}</strong>` : part).join('');
+        formattedReply = formattedReply.split('\n').map(line => line.startsWith('*') ? `• ${line.substring(1)}` : line).join('<br>');
+
+        container.innerHTML += `
+          <div class="flex items-start gap-3">
+            <div class="h-8 w-8 flex items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary"><i data-lucide="bot" class="w-4 h-4"></i></div>
+            <div class="max-w-[80%] rounded-2xl rounded-tl-none px-4 py-3 bg-slate-100/50 dark:bg-slate-900/50 text-xs text-slate-700 dark:text-slate-300">
+              ${formattedReply}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById(botLoaderId).remove();
+        container.innerHTML += `<div class="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-xl">API offline.</div>`;
+      }
+      container.scrollTop = container.scrollHeight;
+      lucide.createIcons();
+    }
+
+    // 8. API Developer Docs
+    function renderDocsPage(el) {
+      el.innerHTML = `
+        <div class="space-y-8 max-w-4xl mx-auto">
+          <div>
+            <h1 class="text-2xl font-extrabold tracking-tight flex items-center gap-2">
+              <i data-lucide="book-open" class="text-brand-primary"></i>
+              <span>Developer API Portal</span>
+            </h1>
+            <p class="mt-1.5 text-xs text-slate-400">Integrate predictions directly into IoT microcontroller sensors</p>
+          </div>
+
+          <div class="glass-card p-6 rounded-3xl space-y-6">
+            <h3 class="font-bold text-base">API Authentication</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Include JWT access tokens in the HTTP authorization header for authenticated routes. Base endpoint is:
+              <code class="px-2 py-0.5 bg-slate-100 dark:bg-slate-900 rounded font-mono text-brand-primary">/api/v1</code>
+            </p>
+            <div class="p-4 bg-slate-100 dark:bg-slate-900 rounded-2xl font-mono text-xs text-slate-600 dark:text-slate-400">
+              Authorization: Bearer &lt;YOUR_ACCESS_TOKEN&gt;
+            </div>
+          </div>
+
+          <div class="glass-card p-6 rounded-3xl space-y-4">
+            <div class="flex items-center gap-2">
+              <span class="bg-emerald-500 text-white font-bold text-[9px] px-2 py-1 rounded">POST</span>
+              <code class="text-xs font-bold font-mono">/predictions/predict-single</code>
+            </div>
+            <p class="text-xs text-slate-500">Evaluates safe ranges on a single water sample.</p>
+            <div class="p-4 bg-slate-100 dark:bg-slate-900 rounded-2xl">
+              <pre class="font-mono text-[10px] text-slate-500 overflow-x-auto">
+{
+  "ph": 7.21,
+  "hardness": 196.3,
+  "solids": 22000.0,
+  "chloramines": 7.12,
+  "sulfate": 333.8,
+  "conductivity": 426.2,
+  "organic_carbon": 14.3,
+  "trihalomethanes": 66.4,
+  "turbidity": 3.97
+}
+              </pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 9. Admin Logs auditing
+    async function renderAdminLogsPage(el) {
+      const logsRes = await fetch(`${API_URL}/admin/logs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const logsList = await logsRes.json();
+
+      el.innerHTML = `
+        <div class="space-y-8">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2">
+              <i data-lucide="shield-alert" class="text-brand-primary"></i>
+              <span>System Audit Logs</span>
+            </h1>
+            <p class="mt-1.5 text-xs text-slate-400">Developer audit tracking database for user transactions</p>
+          </div>
+
+          <div class="glass-card p-6 rounded-3xl">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-200/50 dark:divide-slate-800/50">
+                <thead>
+                  <tr>
+                    <th class="glass-table-th">Timestamp</th>
+                    <th class="glass-table-th">User Email</th>
+                    <th class="glass-table-th">Action</th>
+                    <th class="glass-table-th">Host IP</th>
+                    <th class="glass-table-th">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/50 dark:divide-slate-800/50 bg-transparent text-xs">
+                  ${logsList.length > 0 ? logsList.map(log => `
+                    <tr>
+                      <td class="glass-table-td text-slate-400">${new Date(log.timestamp).toLocaleString()}</td>
+                      <td class="glass-table-td font-bold">${log.user_email}</td>
+                      <td class="glass-table-td font-mono"><code>${log.action}</code></td>
+                      <td class="glass-table-td font-mono">${log.ip_address || '127.0.0.1'}</td>
+                      <td class="glass-table-td">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${log.status === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${log.status}</span>
+                      </td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colSpan="5" class="px-6 py-8 text-center text-xs text-slate-500">No logs registered.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+  </script>
+</body>
+</html>

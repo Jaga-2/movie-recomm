@@ -1,0 +1,39 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+build/
+dist/
+.eggs/
+*.egg-info/
+.python-version
+*.sqlite3
+.DS_Store
+.vscode/
+.idea/
+tests/__pycache__/
+coverage/
+htmlcov/
+.cache/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.envrc
+*.log
+
+# If you want to keep csv datasets in repo, remove the following lines
+#*.csv
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+/.streamlit/
+
+# database
+*.db
