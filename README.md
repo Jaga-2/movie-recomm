@@ -1,132 +1,74 @@
-# AquaFlow AI - Water Quality Prediction System
+# 🎬 Movie Recommender
 
-AquaFlow AI is a modern, professional, responsive Water Quality Prediction Web Application built using **FastAPI (Python)**, **Scikit-Learn (ML)**, and **React.js**.
+A movie recommendation system built with Python and the TMDB 5000 Movies dataset. Pick a movie you like and get a list of similar titles.
 
-The system allows users to evaluate individual water samples or upload CSV/Excel files containing water quality parameters, predicts potability (safety for drinking), generates AI-driven filtration recommendations, and hosts an interactive statistics dashboard.
+## 🌟 Features
 
----
+- **Content-based recommendations**: suggests movies with similar genres, keywords, cast and overview text
+- **TMDB 5000 dataset**: metadata for about 5,000 movies (`tmdb_5000_movies.csv`)
+- **Web interface**: search for a movie and view recommendations
+- **Modular structure**: separate backend, frontend and tests
 
-## 🌟 Key Features
-
-1.  **Ensemble Machine Learning Predictions**: Auto-trains and compares Random Forest, XGBoost, and Gradient Boosting. Integrates the best-performing model for production predictions.
-2.  **Self-Healing Setup**: The backend dynamically generates a 3,000-row training dataset (modeled on Kaggle's Water Potability distributions) and trains the ML pipeline automatically on startup if models are missing.
-3.  **Water Quality Score (0-100) & Grade (A-F)**: Calculates a continuous Water Quality Score (WQS) based on safe limit deviations.
-4.  **AI Purification Assistant**: Analyzes index violations (e.g., pH, Turbidity, Sulfate) and generates custom filtration suggestions (e.g. RO membranes, Activated Carbon, boiling limits).
-5.  **Interactive IoT Telemetry Stream**: Simulates real-time sensor fluctuation monitoring on live rolling graphs.
-6.  **Interactive AI Chatbot**: Natural Language Processing (NLP) chatbot answering parameter queries and WHO standards.
-7.  **Database Integration**: Stores upload histories, logs audit trials, manages reports, and tracks bulk indexes using SQLAlchemy.
-8.  **Professional Reports**: Generates print-ready executive reports, supporting Excel exports and client-side PDF downloads.
-9.  **Dark Mode & Responsive UI**: Stunning light-blue glassmorphic theme with a native dark mode toggle.
-
----
-
-## 📂 Project Architecture
+## 📂 Project Structure
 
 ```
-movie-recomm/ (Workspace root)
-├── backend/
-│   ├── app/
-│   │   ├── ml/
-│   │   │   ├── train.py          # Machine learning model training
-│   │   │   ├── predict.py        # Potability classification & WQS scores
-│   │   │   └── model_store/      # Saved .pkl pipelines & metrics.json
-│   │   ├── routers/
-│   │   │   ├── auth.py           # User profiles & sign-in
-│   │   │   ├── predictions.py    # Bulk uploads, downloads, history
-│   │   │   ├── monitoring.py     # Live sensor sensor streams
-│   │   │   └── admin.py          # Dashboard statistics & audit logs
-│   │   ├── static/
-│   │   │   └── index.html        # Unified out-of-the-box UI
-│   │   ├── config.py             # Settings & JWT keys
-│   │   ├── database.py           # SQLAlchemy SQLite / Postgres connector
-│   │   ├── models.py             # DB Tables (Users, UploadedFiles, etc.)
-│   │   ├── schemas.py            # Pydantic schemas
-│   │   ├── crud.py               # Database query operations
-│   │   └── main.py               # FastAPI router mount & Chat Assistant
-│   ├── scripts/
-│   │   └── generate_data.py      # 3,000-row synthetic generator
-│   ├── requirements.txt          # Python dependencies list
-│   └── run.py                    # Unified backend & ML entrypoint
-├── frontend/                     # Modular React + Vite + Tailwind source
-│   ├── src/
-│   │   ├── components/           # Navbar, Sidebar, Protected routes
-│   │   ├── context/              # Auth & Theme controllers
-│   │   ├── pages/                # 9+ SPA React views
-│   │   ├── services/             # Axios API client integrations
-│   │   ├── App.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.js
+movie-recomm/
+├── backend/                  # Recommendation logic & API
+├── frontend/                 # User interface
+├── tests/                    # Test suite
+├── app.py                    # Application entrypoint
+├── movie.csv                 # Movie data
+├── tmdb_5000_movies.csv      # TMDB dataset
+├── requirements.txt          # Python dependencies
+├── LICENSE
 └── README.md
 ```
 
----
+## 🚀 Getting Started
 
-## 🚀 Local Run Instructions
-
-### 1. Backend Server & Live Portal (Out-of-the-box Run)
-
-The backend features a unified entrypoint script `backend/run.py` that automatically configures everything:
-*   Checks if the training dataset is present (generates `water_potability_train.csv` if missing).
-*   Trains the ensemble models (Random Forest, Gradient Boosting, XGBoost) and exports validation statistics to `metrics.json`.
-*   Spins up the FastAPI API server at `http://localhost:8000`.
-*   Serves the live interactive frontend directly at `http://localhost:8000/`.
-
-**Steps to run:**
-1.  Activate your Python virtual environment (if using one):
-    ```powershell
-    # On Windows PowerShell
-    .\.venv\Scripts\activate
-    ```
-2.  Install dependencies:
-    ```bash
-    pip install -r backend/requirements.txt
-    ```
-3.  Run the self-healing server:
-    ```bash
-    python backend/run.py
-    ```
-4.  Open **`http://localhost:8000/`** in your browser to view the fully functional live system!
-
----
-
-## 🛠️ Machine Learning Module Details
-
-The model training pipeline evaluates three algorithms:
-1.  **Random Forest Classifier**: Robust ensemble bagging, provides feature importances.
-2.  **Gradient Boosting Classifier**: Boosted decision trees, focuses on reducing residuals.
-3.  **XGBoost Classifier**: Advanced gradient boosting framework for maximum accuracy.
-
-The training script outputs `metrics.json` containing:
-*   Model Accuracies, Precision, Recall, and F1-Scores.
-*   Confusion Matrix arrays (`[[TN, FP], [FN, TP]]`).
-*   ROC Curve points (False Positive Rate vs. True Positive Rate) and AUC values.
-*   Feature Importance rankings.
-
----
-
-## 🚀 Deployment Instructions
-
-### 1. Production Database (PostgreSQL)
-Set the `DATABASE_URL` environment variable:
+1. **Clone the repository**
 ```bash
-DATABASE_URL=postgresql://user:password@host:port/dbname
+   git clone https://github.com/Jaga-2/movie-recomm.git
+   cd movie-recomm
 ```
-FastAPI will automatically bind to PostgreSQL instead of SQLite on startup.
 
-### 2. Backend Deployment (Render or Railway)
-1.  Connect your repository.
-2.  Set the start command to:
-    ```bash
-    python backend/run.py
-    ```
-3.  Define environment variables:
-    *   `DATABASE_URL` (your live PostgreSQL string)
-    *   `SECRET_KEY` (secure JWT generation salt)
+2. **Create a virtual environment** (optional)
+```bash
+   python -m venv .venv
+   # Windows
+   .\.venv\Scripts\activate
+   # macOS/Linux
+   source .venv/bin/activate
+```
 
-### 3. Frontend Deployment (Vercel)
-If you deploy the modular React app separately:
-1.  Update `API_BASE_URL` in `frontend/src/services/api.js` to point to your live backend endpoint.
-2.  Set the Vercel Build Command to: `npm run build` and Output Directory to `dist`.
+3. **Install dependencies**
+```bash
+   pip install -r requirements.txt
+```
+
+4. **Run the app**
+```bash
+   python app.py
+```
+
+## 🛠️ How It Works
+
+1. Load and clean the movie data (genres, keywords, overview)
+2. Combine the text features into one "tags" field per movie
+3. Vectorize the text (e.g. TF-IDF or CountVectorizer)
+4. Compute cosine similarity between movies
+5. Return the top N most similar movies for a chosen title
+
+## 🧪 Tests
+
+```bash
+pytest tests/
+```
+
+## 📄 License
+
+Released under the [MIT License](LICENSE).
+
+## 🙏 Acknowledgements
+
+- [TMDB 5000 Movie Dataset](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata)
